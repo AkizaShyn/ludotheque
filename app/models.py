@@ -1,6 +1,6 @@
 from datetime import datetime
 import json
-from . import db
+from .extensions import db
 
 
 class Game(db.Model):

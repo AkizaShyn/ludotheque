@@ -17,6 +17,29 @@ Application web pour gérer tes jeux vidéo :
 - Métadonnées: IGDB (auth Twitch)
 - Conteneurisation: Docker + Docker Compose
 
+## Structure du projet
+```text
+app/
+  __init__.py            # Factory Flask
+  config.py              # Chargement centralisé de la config (env)
+  constants.py           # Constantes métier
+  db_init.py             # Initialisation/compatibilité schéma DB
+  extensions.py          # Extensions Flask (SQLAlchemy)
+  models.py              # Modèles SQLAlchemy
+  routes.py              # Endpoints API + vues
+  igdb.py                # Client IGDB/Twitch + normalisation
+  services/
+    game_sheet_service.py
+    metadata_service.py
+  static/
+  templates/
+```
+
+Règles appliquées:
+- Pas de valeurs magiques dans les routes (constantes/config partagées).
+- Initialisation DB séparée de la factory Flask.
+- Logique métier réutilisable dans `services/`.
+
 ## Prérequis
 - Docker
 - Docker Compose
@@ -57,3 +80,4 @@ docker compose up --build
 ## Remarques
 - Si les variables IGDB ne sont pas définies, l'ajout manuel fonctionne toujours.
 - La table est créée automatiquement au démarrage de l'app.
+- `SHEET_CACHE_TTL_SECONDS` permet d'ajuster le cache des fiches (en secondes).

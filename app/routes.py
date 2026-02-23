@@ -1,97 +1,39 @@
 from flask import Blueprint, current_app, jsonify, render_template, request
 from sqlalchemy import asc
 import re
-from datetime import datetime, timedelta
-import hashlib
 
-from . import db
-from .models import Game, GameSheetCache
+from .constants import (
+    DEFAULT_OWNERSHIP_TYPE,
+    DEFAULT_SHEET_CACHE_TTL_SECONDS,
+    VALID_OWNERSHIP_TYPES,
+)
+from .extensions import db
+from .models import Game
 from .igdb import game_details, search_games
+from .services.metadata_service import pick_best_match
+from .services.game_sheet_service import (
+    build_sheet_fallback_payload,
+    build_sheet_payload_from_cache,
+    get_valid_sheet_cache,
+    invalidate_sheet_cache,
+    upsert_sheet_cache,
+)
 
 
 main_bp = Blueprint("main", __name__)
-VALID_OWNERSHIP_TYPES = {"physical", "digital", "unknown"}
-SHEET_CACHE_TTL_SECONDS = 86400
 
 
 def _normalize_ownership_type(value: str | None) -> str:
     candidate = (value or "").strip().lower()
     if candidate in VALID_OWNERSHIP_TYPES:
         return candidate
-    return "unknown"
+    return DEFAULT_OWNERSHIP_TYPE
 
 
-def _pick_best_match(results: list[dict], title: str, platform: str | None) -> dict | None:
-    if not results:
-        return None
-
-    title_lower = title.strip().lower()
-    platform_lower = (platform or "").strip().lower()
-
-    exact_title_matches = [r for r in results if (r.get("title") or "").strip().lower() == title_lower]
-    candidate_pool = exact_title_matches or results
-
-    if platform_lower:
-        for candidate in candidate_pool:
-            for p in candidate.get("platforms", []):
-                if platform_lower in p.lower():
-                    return candidate
-
-    return candidate_pool[0]
-
-
-def _sheet_fingerprint(game: Game) -> str:
-    raw = "|".join(
-        [
-            str(game.id),
-            game.title or "",
-            game.platform or "",
-            "1" if bool(game.completed) else "0",
-            game.ownership_type or "",
-            game.release_date or "",
-            game.cover_url or "",
-            game.description or "",
-            game.genre or "",
-        ]
-    )
-    return hashlib.sha1(raw.encode("utf-8")).hexdigest()
-
-
-def _sheet_fallback_payload(game: Game) -> dict:
-    return {
-        "id": game.id,
-        "title": game.title,
-        "platform": game.platform,
-        "completed": game.completed,
-        "ownership_type": game.ownership_type,
-        "release_date": game.release_date,
-        "release_year": int(game.release_date[:4]) if game.release_date and len(game.release_date) >= 4 else None,
-        "publisher": None,
-        "cover_url": game.cover_url,
-        "description_fr": None,
-        "description": game.description,
-        "images": [game.cover_url] if game.cover_url else [],
-        "videos": [],
-    }
-
-
-def _sheet_payload_from_cache(game: Game, cache_row: GameSheetCache) -> dict:
-    return {
-        "id": game.id,
-        "title": cache_row.title or game.title,
-        "platform": game.platform,
-        "completed": game.completed,
-        "ownership_type": game.ownership_type,
-        "release_date": cache_row.release_date or game.release_date,
-        "release_year": cache_row.release_year
-        or (int(game.release_date[:4]) if game.release_date and len(game.release_date) >= 4 else None),
-        "publisher": cache_row.publisher,
-        "cover_url": cache_row.cover_url or game.cover_url,
-        "description_fr": cache_row.description_fr,
-        "description": cache_row.description or game.description,
-        "images": cache_row.get_images() or ([game.cover_url] if game.cover_url else []),
-        "videos": cache_row.get_videos(),
-    }
+def _get_igdb_credentials() -> tuple[str, str]:
+    client_id = current_app.config.get("IGDB_CLIENT_ID", "")
+    client_secret = current_app.config.get("IGDB_CLIENT_SECRET", "")
+    return client_id, client_secret
 
 
 @main_bp.route("/")
@@ -182,9 +124,7 @@ def update_game(game_id: int):
     if "description" in payload:
         game.description = (payload.get("description") or "").strip() or None
 
-    cache_row = GameSheetCache.query.filter_by(game_id=game.id).first()
-    if cache_row:
-        db.session.delete(cache_row)
+    invalidate_sheet_cache(game.id)
 
     db.session.commit()
     return jsonify(game.to_dict())
@@ -193,9 +133,7 @@ def update_game(game_id: int):
 @main_bp.route("/api/games/<int:game_id>", methods=["DELETE"])
 def delete_game(game_id: int):
     game = Game.query.get_or_404(game_id)
-    cache_row = GameSheetCache.query.filter_by(game_id=game.id).first()
-    if cache_row:
-        db.session.delete(cache_row)
+    invalidate_sheet_cache(game.id)
     db.session.delete(game)
     db.session.commit()
     return "", 204
@@ -220,8 +158,7 @@ def metadata_search():
     if not query:
         return jsonify({"error": "Le paramètre query est obligatoire."}), 400
 
-    client_id = current_app.config.get("IGDB_CLIENT_ID", "")
-    client_secret = current_app.config.get("IGDB_CLIENT_SECRET", "")
+    client_id, client_secret = _get_igdb_credentials()
 
     try:
         results = search_games(client_id=client_id, client_secret=client_secret, query=query, platform=platform)
@@ -234,8 +171,7 @@ def metadata_search():
 
 @main_bp.route("/api/metadata/details/<int:igdb_id>", methods=["GET"])
 def metadata_details(igdb_id: int):
-    client_id = current_app.config.get("IGDB_CLIENT_ID", "")
-    client_secret = current_app.config.get("IGDB_CLIENT_SECRET", "")
+    client_id, client_secret = _get_igdb_credentials()
 
     try:
         result = game_details(client_id=client_id, client_secret=client_secret, igdb_id=igdb_id)
@@ -254,12 +190,11 @@ def metadata_by_title():
     if not title:
         return jsonify({"error": "Le paramètre title est obligatoire."}), 400
 
-    client_id = current_app.config.get("IGDB_CLIENT_ID", "")
-    client_secret = current_app.config.get("IGDB_CLIENT_SECRET", "")
+    client_id, client_secret = _get_igdb_credentials()
 
     try:
         results = search_games(client_id=client_id, client_secret=client_secret, query=title, page_size=10)
-        best_match = _pick_best_match(results=results, title=title, platform=platform)
+        best_match = pick_best_match(results=results, title=title, platform=platform)
 
         if not best_match:
             return jsonify({"error": "Aucune fiche trouvée pour ce jeu."}), 404
@@ -279,28 +214,21 @@ def metadata_by_title():
 @main_bp.route("/api/games/<int:game_id>/sheet", methods=["GET"])
 def game_sheet(game_id: int):
     game = Game.query.get_or_404(game_id)
-    now_dt = datetime.utcnow()
 
-    client_id = current_app.config.get("IGDB_CLIENT_ID", "")
-    client_secret = current_app.config.get("IGDB_CLIENT_SECRET", "")
+    client_id, client_secret = _get_igdb_credentials()
+    ttl_seconds = int(current_app.config.get("SHEET_CACHE_TTL_SECONDS", DEFAULT_SHEET_CACHE_TTL_SECONDS))
 
-    fingerprint = _sheet_fingerprint(game)
-    fallback_payload = _sheet_fallback_payload(game)
-
-    cache_row = GameSheetCache.query.filter_by(game_id=game.id).first()
-    if (
-        cache_row
-        and cache_row.source_fingerprint == fingerprint
-        and cache_row.cached_at >= now_dt - timedelta(seconds=SHEET_CACHE_TTL_SECONDS)
-    ):
-        return jsonify(_sheet_payload_from_cache(game, cache_row))
+    cache_row, fingerprint = get_valid_sheet_cache(game=game, ttl_seconds=ttl_seconds)
+    fallback_payload = build_sheet_fallback_payload(game)
+    if cache_row:
+        return jsonify(build_sheet_payload_from_cache(game, cache_row))
 
     if not client_id or not client_secret:
         return jsonify(fallback_payload)
 
     try:
         results = search_games(client_id=client_id, client_secret=client_secret, query=game.title, page_size=10)
-        best_match = _pick_best_match(results=results, title=game.title, platform=game.platform)
+        best_match = pick_best_match(results=results, title=game.title, platform=game.platform)
 
         if not best_match or not best_match.get("igdb_id"):
             return jsonify(fallback_payload)
@@ -329,23 +257,7 @@ def game_sheet(game_id: int):
             "videos": details.get("videos") or [],
         }
 
-        if not cache_row:
-            cache_row = GameSheetCache(game_id=game.id)
-
-        cache_row.source_fingerprint = fingerprint
-        cache_row.igdb_id = details.get("igdb_id")
-        cache_row.title = merged.get("title")
-        cache_row.release_date = merged.get("release_date")
-        cache_row.release_year = merged.get("release_year")
-        cache_row.publisher = merged.get("publisher")
-        cache_row.cover_url = merged.get("cover_url")
-        cache_row.description = merged.get("description")
-        cache_row.description_fr = merged.get("description_fr")
-        cache_row.set_images(merged.get("images") or [])
-        cache_row.set_videos(merged.get("videos") or [])
-        cache_row.cached_at = now_dt
-        db.session.add(cache_row)
-        db.session.commit()
+        upsert_sheet_cache(game=game, fingerprint=fingerprint, payload=merged)
 
         return jsonify(merged)
     except Exception:
