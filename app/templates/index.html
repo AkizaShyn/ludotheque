@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ma Ludothèque</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="kicker">Ma collection de jeux</p>
+          <h1>Ludothèque</h1>
+        </div>
+        <div class="topbar-stats">
+          <span id="statTotal">0 jeux</span>
+          <span id="statCompleted">0 terminés</span>
+          <span id="statRemaining">0 à finir</span>
+        </div>
+      </header>
+
+      <p id="statusMessage" class="status-message" aria-live="polite"></p>
+
+      <section id="viewPlatforms" class="view-section">
+        <div class="section-header">
+          <h2>Choisir Une Plateforme</h2>
+          <div class="new-platform-inline">
+            <input id="newPlatformInput" type="text" placeholder="Ajouter une plateforme (ex: Dreamcast)" />
+            <button id="addPlatformBtn" type="button" class="btn-secondary">Ajouter</button>
+          </div>
+        </div>
+        <div id="platformGrid" class="platform-grid"></div>
+      </section>
+
+      <section id="viewPlatformGames" class="view-section hidden">
+        <div class="section-header">
+          <div>
+            <button id="backToPlatformsBtn" type="button" class="btn-secondary">Retour plateformes</button>
+            <h2 id="platformTitle">Plateforme</h2>
+            <p id="platformSubtitle" class="meta"></p>
+          </div>
+          <div class="filters">
+            <select id="completedFilter">
+              <option value="">Tous les statuts</option>
+              <option value="true">Terminés</option>
+              <option value="false">Non terminés</option>
+            </select>
+            <button id="toggleAddGameBtn" type="button">Ajouter un jeu</button>
+          </div>
+        </div>
+
+        <div id="addGamePanel" class="card add-card hidden">
+          <h3>Ajouter Un Jeu Dans Cette Plateforme</h3>
+          <div class="row search-row">
+            <input id="searchInput" type="text" placeholder="Rechercher des métadonnées IGDB" autocomplete="off" />
+            <button id="searchBtn" type="button">Rechercher</button>
+            <button id="clearSearchBtn" type="button" class="btn-secondary">Effacer</button>
+          </div>
+          <div id="searchResults" class="search-results"></div>
+
+          <form id="gameForm" class="add-form">
+            <div class="row">
+              <label>
+                Titre
+                <input id="title" required />
+              </label>
+              <label>
+                Genre
+                <input id="genre" />
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Date de sortie
+                <input id="releaseDate" placeholder="YYYY-MM-DD" />
+              </label>
+              <label>
+                URL image (cover)
+                <input id="coverUrl" />
+              </label>
+              <label>
+                Format
+                <select id="ownershipType">
+                  <option value="unknown">Non précisé</option>
+                  <option value="physical">Physique</option>
+                  <option value="digital">Numérique</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              Description
+              <textarea id="description" rows="3"></textarea>
+            </label>
+            <label class="checkbox">
+              <input id="completed" type="checkbox" />
+              Jeu terminé
+            </label>
+            <button id="submitBtn" type="submit">Ajouter le jeu</button>
+          </form>
+        </div>
+
+        <div class="section-header compact">
+          <h3>Jeux de la plateforme</h3>
+          <span id="collectionCount" class="meta"></span>
+        </div>
+        <div id="gamesGrid" class="games-grid"></div>
+      </section>
+
+      <section id="viewGameSheet" class="view-section hidden">
+        <button id="backToGamesBtn" type="button" class="btn-secondary">Retour à la liste</button>
+
+        <article class="game-sheet-page">
+          <header class="sheet-hero">
+            <img id="sheetCover" class="sheet-main-cover" alt="cover" />
+            <div class="sheet-main-info">
+              <h2 id="sheetTitle">Titre</h2>
+              <p id="sheetMetaLine" class="meta"></p>
+              <p id="sheetStatus" class="sheet-status"></p>
+              <p id="sheetOwnership" class="badge ownership-badge unknown">Format: Non précisé</p>
+              <button id="sheetEditBtn" type="button">Modifier ce jeu</button>
+            </div>
+          </header>
+
+          <section class="sheet-block">
+            <h3>Description (FR)</h3>
+            <p id="sheetDescriptionFr"></p>
+          </section>
+
+          <section class="sheet-block">
+            <h3>Images</h3>
+            <div id="sheetImages" class="sheet-media-grid"></div>
+          </section>
+
+          <section class="sheet-block">
+            <h3>Vidéos</h3>
+            <div id="sheetVideos" class="sheet-video-grid"></div>
+          </section>
+        </article>
+      </section>
+    </main>
+
+    <aside id="editGameModal" class="edit-modal hidden" aria-hidden="true">
+      <div class="edit-backdrop" data-close-edit="1"></div>
+      <div class="edit-card">
+        <h3>Modifier le jeu</h3>
+        <form id="editGameForm">
+          <label class="checkbox">
+            <input id="editCompleted" type="checkbox" />
+            Jeu terminé
+          </label>
+          <label>
+            Format
+            <select id="editOwnershipType">
+              <option value="unknown">Non précisé</option>
+              <option value="physical">Physique</option>
+              <option value="digital">Numérique</option>
+            </select>
+          </label>
+          <div class="row">
+            <button id="saveEditBtn" type="submit">Enregistrer</button>
+            <button id="cancelEditBtn" type="button" class="btn-secondary">Annuler</button>
+          </div>
+        </form>
+      </div>
+    </aside>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

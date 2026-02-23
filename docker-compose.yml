@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16
+    container_name: games_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: games_db
+      POSTGRES_USER: games_user
+      POSTGRES_PASSWORD: games_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U games_user -d games_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    container_name: games_web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://games_user:games_password@db:5432/games_db
+      IGDB_CLIENT_ID: ${IGDB_CLIENT_ID:-}
+      IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET:-}
+    ports:
+      - "5001:5000"
+
+volumes:
+  postgres_data:
