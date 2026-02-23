@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" role="img" aria-label="psp">
+  <rect width="640" height="360" fill="#1f2228"/>
+  <image href="/static/platforms/photos/psp.jpg" x="0" y="0" width="640" height="360" preserveAspectRatio="xMidYMid slice"/>
+  <rect x="0" y="0" width="640" height="22" fill="rgba(0,0,0,0.22)"/>
+  <rect x="0" y="338" width="640" height="22" fill="rgba(0,0,0,0.22)"/>
+</svg>

@@ -7,108 +7,73 @@
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <main class="app-shell">
-      <header class="topbar">
+    <main class="app-shell container is-max-desktop">
+      <header class="topbar box">
         <div>
           <p class="kicker">Ma collection de jeux</p>
           <h1>Ludothèque</h1>
         </div>
         <div class="topbar-stats">
-          <span id="statTotal">0 jeux</span>
-          <span id="statCompleted">0 terminés</span>
-          <span id="statRemaining">0 à finir</span>
+          <button id="statTotal" class="stat-chip" type="button" data-stat="all">0 jeux</button>
+          <button id="statCompleted" class="stat-chip" type="button" data-stat="completed">0 terminés</button>
+          <button id="statRemaining" class="stat-chip" type="button" data-stat="remaining">0 à finir</button>
         </div>
       </header>
 
       <p id="statusMessage" class="status-message" aria-live="polite"></p>
-
       <section id="viewPlatforms" class="view-section">
         <div class="section-header">
           <h2>Choisir Une Plateforme</h2>
           <div class="new-platform-inline">
-            <input id="newPlatformInput" type="text" placeholder="Ajouter une plateforme (ex: Dreamcast)" />
-            <button id="addPlatformBtn" type="button" class="btn-secondary">Ajouter</button>
+            <input id="newPlatformInput" class="input" type="text" placeholder="Ajouter une plateforme (ex: Dreamcast)" />
+            <button id="addPlatformBtn" type="button" class="button is-light btn-secondary">Ajouter</button>
+            <button id="toggleLibrarySearchBtn" type="button" class="button is-light btn-secondary" title="Ouvrir la recherche">🔍</button>
           </div>
         </div>
+        <div id="librarySearchControls" class="library-search-controls hidden">
+          <input id="librarySearchInput" type="text" placeholder="Ex: Super Metroid, Zelda, Halo..." autocomplete="off" />
+          <button id="librarySearchBtn" type="button">Rechercher</button>
+          <button id="librarySearchClearBtn" type="button" class="btn-secondary">Effacer</button>
+        </div>
+        <div id="librarySearchHistory" class="search-history"></div>
+        <div id="librarySearchResults" class="library-search-results"></div>
         <div id="platformGrid" class="platform-grid"></div>
       </section>
 
       <section id="viewPlatformGames" class="view-section hidden">
         <div class="section-header">
           <div>
-            <button id="backToPlatformsBtn" type="button" class="btn-secondary">Retour plateformes</button>
+            <button id="backToPlatformsBtn" type="button" class="button is-light btn-secondary">Retour plateformes</button>
             <h2 id="platformTitle">Plateforme</h2>
             <p id="platformSubtitle" class="meta"></p>
           </div>
           <div class="filters">
-            <select id="completedFilter">
+            <select id="completedFilter" class="select-native">
               <option value="">Tous les statuts</option>
               <option value="true">Terminés</option>
               <option value="false">Non terminés</option>
             </select>
-            <button id="toggleAddGameBtn" type="button">Ajouter un jeu</button>
+            <button id="toggleAddGameBtn" type="button" class="button is-primary">Ajouter un jeu</button>
           </div>
-        </div>
-
-        <div id="addGamePanel" class="card add-card hidden">
-          <h3>Ajouter Un Jeu Dans Cette Plateforme</h3>
-          <div class="row search-row">
-            <input id="searchInput" type="text" placeholder="Rechercher des métadonnées IGDB" autocomplete="off" />
-            <button id="searchBtn" type="button">Rechercher</button>
-            <button id="clearSearchBtn" type="button" class="btn-secondary">Effacer</button>
-          </div>
-          <div id="searchResults" class="search-results"></div>
-
-          <form id="gameForm" class="add-form">
-            <div class="row">
-              <label>
-                Titre
-                <input id="title" required />
-              </label>
-              <label>
-                Genre
-                <input id="genre" />
-              </label>
-            </div>
-            <div class="row">
-              <label>
-                Date de sortie
-                <input id="releaseDate" placeholder="YYYY-MM-DD" />
-              </label>
-              <label>
-                URL image (cover)
-                <input id="coverUrl" />
-              </label>
-              <label>
-                Format
-                <select id="ownershipType">
-                  <option value="unknown">Non précisé</option>
-                  <option value="physical">Physique</option>
-                  <option value="digital">Numérique</option>
-                </select>
-              </label>
-            </div>
-            <label>
-              Description
-              <textarea id="description" rows="3"></textarea>
-            </label>
-            <label class="checkbox">
-              <input id="completed" type="checkbox" />
-              Jeu terminé
-            </label>
-            <button id="submitBtn" type="submit">Ajouter le jeu</button>
-          </form>
         </div>
 
         <div class="section-header compact">
           <h3>Jeux de la plateforme</h3>
-          <span id="collectionCount" class="meta"></span>
+          <div class="games-toolbar">
+            <select id="gameSort" class="select-native">
+              <option value="az">Tri: A-Z</option>
+              <option value="za">Tri: Z-A</option>
+              <option value="newest">Tri: Plus récents</option>
+              <option value="completed">Tri: Terminés d'abord</option>
+            </select>
+            <span id="collectionCount" class="meta"></span>
+          </div>
         </div>
         <div id="gamesGrid" class="games-grid"></div>
       </section>
 
       <section id="viewGameSheet" class="view-section hidden">
-        <button id="backToGamesBtn" type="button" class="btn-secondary">Retour à la liste</button>
+        <button id="backToGamesBtn" type="button" class="button is-light btn-secondary">Retour à la liste</button>
 
         <article class="game-sheet-page">
           <header class="sheet-hero">
@@ -118,13 +83,18 @@
               <p id="sheetMetaLine" class="meta"></p>
               <p id="sheetStatus" class="sheet-status"></p>
               <p id="sheetOwnership" class="badge ownership-badge unknown">Format: Non précisé</p>
-              <button id="sheetEditBtn" type="button">Modifier ce jeu</button>
+              <button id="sheetEditBtn" type="button" class="button is-primary">Modifier ce jeu</button>
             </div>
           </header>
 
           <section class="sheet-block">
             <h3>Description (FR)</h3>
             <p id="sheetDescriptionFr"></p>
+          </section>
+
+          <section class="sheet-block">
+            <h3>Description (EN)</h3>
+            <p id="sheetDescriptionEn"></p>
           </section>
 
           <section class="sheet-block">
@@ -140,26 +110,109 @@
       </section>
     </main>
 
+    <aside id="addGameModal" class="edit-modal hidden" aria-hidden="true">
+      <div class="edit-backdrop" data-close-add="1"></div>
+      <div id="addGamePanel" class="edit-card add-game-modal-card">
+        <div class="section-header compact">
+          <h3>Ajouter Un Jeu Dans Cette Plateforme</h3>
+          <button id="closeAddGameBtn" type="button" class="button is-light btn-secondary">Fermer</button>
+        </div>
+        <div class="row search-row">
+          <button id="toggleMetadataSearchBtn" type="button" class="button is-light btn-secondary" title="Ouvrir la recherche">🔍</button>
+          <div id="metadataSearchControls" class="metadata-search-controls hidden">
+            <input id="searchInput" class="input" type="text" placeholder="Rechercher des métadonnées IGDB" autocomplete="off" />
+            <button id="searchBtn" type="button" class="button is-primary">Rechercher</button>
+            <button id="clearSearchBtn" type="button" class="button is-light btn-secondary">Effacer</button>
+          </div>
+        </div>
+        <div id="searchResults" class="search-results"></div>
+
+        <form id="gameForm" class="add-form">
+          <div class="row">
+            <label>
+              Titre
+              <input id="title" class="input" required />
+            </label>
+            <label>
+              Genre
+              <input id="genre" class="input" />
+            </label>
+          </div>
+          <div class="row">
+            <label>
+              Date de sortie
+              <input id="releaseDate" class="input" placeholder="YYYY-MM-DD" />
+            </label>
+            <label>
+              URL image (cover)
+              <input id="coverUrl" class="input" />
+            </label>
+            <label>
+              Format
+              <select id="ownershipType" class="select-native">
+                <option value="unknown">Non précisé</option>
+                <option value="physical">Physique</option>
+                <option value="digital">Numérique</option>
+              </select>
+            </label>
+          </div>
+          <label>
+            Description
+            <textarea id="description" class="textarea" rows="3"></textarea>
+          </label>
+          <label class="checkbox">
+            <input id="completed" type="checkbox" />
+            Jeu terminé
+          </label>
+          <button id="submitBtn" type="submit" class="button is-primary">Ajouter le jeu</button>
+        </form>
+      </div>
+    </aside>
+
     <aside id="editGameModal" class="edit-modal hidden" aria-hidden="true">
       <div class="edit-backdrop" data-close-edit="1"></div>
       <div class="edit-card">
         <h3>Modifier le jeu</h3>
         <form id="editGameForm">
+          <div class="row">
+            <label>
+              Titre
+              <input id="editTitle" class="input" required />
+            </label>
+            <label>
+              Genre
+              <input id="editGenre" class="input" />
+            </label>
+          </div>
+          <div class="row">
+            <label>
+              Date de sortie
+              <input id="editReleaseDate" class="input" placeholder="YYYY-MM-DD" />
+            </label>
+            <label>
+              URL image (cover)
+              <input id="editCoverUrl" class="input" />
+            </label>
+          </div>
+          <label>
+            Description
+            <textarea id="editDescription" class="textarea" rows="3"></textarea>
+          </label>
           <label class="checkbox">
             <input id="editCompleted" type="checkbox" />
             Jeu terminé
           </label>
           <label>
             Format
-            <select id="editOwnershipType">
+            <select id="editOwnershipType" class="select-native">
               <option value="unknown">Non précisé</option>
               <option value="physical">Physique</option>
               <option value="digital">Numérique</option>
             </select>
           </label>
           <div class="row">
-            <button id="saveEditBtn" type="submit">Enregistrer</button>
-            <button id="cancelEditBtn" type="button" class="btn-secondary">Annuler</button>
+            <button id="saveEditBtn" type="submit" class="button is-primary">Enregistrer</button>
+            <button id="cancelEditBtn" type="button" class="button is-light btn-secondary">Annuler</button>
           </div>
         </form>
       </div>
